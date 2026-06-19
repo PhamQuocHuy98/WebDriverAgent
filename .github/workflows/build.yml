@@ -12,14 +12,15 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          # Chạy lệnh cài đặt các thư viện phụ trợ của Appium trước khi Build (Nếu có)
           if [ -f "./Scripts/bootstrap.sh" ]; then
             ./Scripts/bootstrap.sh -d
           fi
 
+      - name: Install ldid
+        run: brew install ldid
+
       - name: Build WebDriverAgent
         run: |
-          # Dùng Xcode mặc định của máy chủ để Build
           xcodebuild build-for-testing \
             -project WebDriverAgent.xcodeproj \
             -scheme WebDriverAgentRunner \
@@ -29,10 +30,14 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CONFIGURATION_BUILD_DIR="$(pwd)/build"
           
-          # Đóng gói thành file .ipa cho TrollStore
           echo "Packaging IPA..."
           mkdir -p Payload
           mv build/WebDriverAgentRunner-Runner.app Payload/
+          
+          echo "Ad-Hoc Signing for AppSync..."
+          # Tự động tìm tất cả file thực thi Mach-O và đóng dấu chữ ký giả (ldid)
+          find Payload -type f -exec sh -c 'file "$1" | grep -q "Mach-O" && ldid -S "$1"' _ {} \;
+          
           zip -r WebDriverAgent.ipa Payload
           
       - name: Upload Artifact
